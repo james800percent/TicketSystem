@@ -62,6 +62,9 @@ let pendingDeleteId = null;
 // AUTH
 // ============================================================
 
+// Hide the "Create an account" link — signups are admin-only.
+document.querySelector('.auth-toggle-wrap')?.classList.add('hidden');
+
 authToggleLink.addEventListener('click', (e) => {
     e.preventDefault();
     isSignUpMode = !isSignUpMode;
