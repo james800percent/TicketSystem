@@ -4,112 +4,181 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BugTracker - Ticket System</title>
+    <meta name="description" content="BugTracker — shared multi-user ticket system">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%237C3AED'/></svg>">
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-    <header class="header">
-        <div class="header-content">
-            <div class="logo">
+
+    <!-- ================= AUTH SCREEN ================= -->
+    <div id="authScreen" class="auth-screen">
+        <div class="auth-card glass">
+            <div class="auth-logo">
                 <div class="logo-icon"></div>
                 <h1>BugTracker</h1>
             </div>
-            <div class="header-actions">
-                <div class="stats">
-                    <span class="stat" id="openCount">Open: 0</span>
-                    <span class="stat" id="resolvedCount">Resolved: 0</span>
+            <p class="auth-subtitle" id="authSubtitle">Sign in to your account</p>
+
+            <form id="authForm">
+                <div class="input-group">
+                    <label for="authEmail">Email</label>
+                    <input type="email" id="authEmail" placeholder="you@company.com" autocomplete="email" required>
                 </div>
-                <button id="addTicketBtn" class="primary-btn">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
-                    New Ticket
-                </button>
-            </div>
-        </div>
-    </header>
+                <div class="input-group">
+                    <label for="authPassword">Password</label>
+                    <input type="password" id="authPassword" placeholder="At least 6 characters" autocomplete="current-password" minlength="6" required>
+                </div>
 
-    <main class="container">
-        <!-- Controls toolbar: Search & Filter -->
-        <div class="toolbar">
-            <div class="search-wrap">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="search-icon" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
-                <input type="text" id="searchInput" placeholder="Search tickets by title or ID..." autocomplete="off">
-            </div>
-            <div class="filters">
-                <select id="statusFilter" class="dropdown">
-                    <option value="All">All Statuses</option>
-                    <option value="Open">Open</option>
-                    <option value="Resolved">Resolved</option>
-                </select>
-                <select id="priorityFilter" class="dropdown">
-                    <option value="All">All Priorities</option>
-                    <option value="High">High</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Low">Low</option>
-                </select>
-            </div>
-        </div>
+                <div id="authError" class="auth-error hidden"></div>
+                <div id="authSuccess" class="auth-success hidden"></div>
 
-        <!-- Dashboard Grid -->
-        <div id="ticketGrid" class="grid">
-            <!-- Ticket Cards injected here -->
-        </div>
+                <button type="submit" id="authSubmitBtn" class="primary-btn glow auth-submit">Sign In</button>
+            </form>
 
-        <div id="emptyState" class="empty-state hidden">
-            <div class="empty-icon">✓</div>
-            <h3>All clear!</h3>
-            <p>No tickets found. You are all caught up!</p>
-            <button id="emptyAddBtn" class="secondary-btn">Report an Issue</button>
-        </div>
-    </main>
-
-    <!-- Add Ticket Modal -->
-    <div id="ticketModal" class="modal hidden">
-        <div class="modal-content glass">
-            <div class="modal-header">
-                <h2>Create New Ticket</h2>
-                <button id="closeModalBtn" class="icon-btn" aria-label="Close">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="ticketForm">
-                    <div class="input-group">
-                        <label for="ticketTitle">Issue Title</label>
-                        <input type="text" id="ticketTitle" placeholder="e.g. Login button unresponsive on mobile" autocomplete="off" required>
-                    </div>
-                    
-                    <div class="form-row">
-                        <div class="input-group half">
-                            <label for="ticketPriority">Priority</label>
-                            <select id="ticketPriority" required>
-                                <option value="Low">Low (Minor)</option>
-                                <option value="Medium" selected>Medium (Standard)</option>
-                                <option value="High">High (Critical)</option>
-                            </select>
-                        </div>
-                        <div class="input-group half">
-                            <label for="ticketReporter">Reporter Name</label>
-                            <input type="text" id="ticketReporter" placeholder="Your Name" autocomplete="off" required>
-                        </div>
-                    </div>
-
-                    <div class="input-group flex-fill">
-                        <label for="ticketDescription">Description & Steps to Reproduce</label>
-                        <textarea id="ticketDescription" placeholder="1. Go to page...&#10;2. Click on...&#10;3. Expected... but got..." required></textarea>
-                    </div>
-
-                    <div class="modal-footer">
-                        <button type="button" id="cancelBtn" class="secondary-btn">Cancel</button>
-                        <button type="submit" id="saveTicketBtn" class="primary-btn glow">Submit Ticket</button>
-                    </div>
-                </form>
-            </div>
+            <p class="auth-toggle-wrap">
+                <span id="authToggleText">New here?</span>
+                <a href="#" id="authToggleLink">Create an account</a>
+            </p>
         </div>
     </div>
 
-    <!-- Scripts -->
+    <!-- ================= MAIN APP (hidden until logged in) ================= -->
+    <div id="appScreen" class="hidden">
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <div class="logo-icon"></div>
+                    <h1>BugTracker</h1>
+                </div>
+                <div class="header-actions">
+                    <div class="stats" aria-live="polite">
+                        <span class="stat" id="openCount">Open: 0</span>
+                        <span class="stat" id="resolvedCount">Resolved: 0</span>
+                    </div>
+                    <button id="addTicketBtn" class="primary-btn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
+                        New Ticket
+                    </button>
+                    <div class="user-menu">
+                        <span class="user-email" id="userEmail"></span>
+                        <button id="signOutBtn" class="secondary-btn small">Sign Out</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="container">
+            <div class="toolbar">
+                <div class="search-wrap">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="search-icon" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+                    <input type="text" id="searchInput" placeholder="Search tickets by title or ID..." autocomplete="off" maxlength="200">
+                </div>
+                <div class="filters">
+                    <select id="statusFilter" class="dropdown" aria-label="Filter by status">
+                        <option value="All">All Statuses</option>
+                        <option value="Open">Open</option>
+                        <option value="Resolved">Resolved</option>
+                    </select>
+                    <select id="priorityFilter" class="dropdown" aria-label="Filter by priority">
+                        <option value="All">All Priorities</option>
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="loadingState" class="empty-state">
+                <p>Loading tickets...</p>
+            </div>
+
+            <div id="ticketGrid" class="grid hidden"></div>
+
+            <div id="emptyState" class="empty-state hidden">
+                <div class="empty-icon">✓</div>
+                <h3>All clear!</h3>
+                <p>No tickets found. You are all caught up!</p>
+                <button id="emptyAddBtn" class="secondary-btn">Report an Issue</button>
+            </div>
+        </main>
+
+        <!-- Add/Edit Ticket Modal -->
+        <div id="ticketModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+            <div class="modal-content glass">
+                <div class="modal-header">
+                    <h2 id="modalTitle">Create New Ticket</h2>
+                    <button id="closeModalBtn" class="icon-btn" aria-label="Close">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="ticketForm">
+                        <input type="hidden" id="editingTicketId" value="">
+
+                        <div class="input-group">
+                            <label for="ticketTitle">Issue Title</label>
+                            <input type="text" id="ticketTitle" placeholder="e.g. Login button unresponsive on mobile" autocomplete="off" maxlength="120" required>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="input-group half">
+                                <label for="ticketPriority">Priority</label>
+                                <select id="ticketPriority" required>
+                                    <option value="Low">Low (Minor)</option>
+                                    <option value="Medium" selected>Medium (Standard)</option>
+                                    <option value="High">High (Critical)</option>
+                                </select>
+                            </div>
+                            <div class="input-group half">
+                                <label for="ticketReporter">Reporter Name</label>
+                                <input type="text" id="ticketReporter" placeholder="Your Name" autocomplete="name" maxlength="60" required>
+                            </div>
+                        </div>
+
+                        <div class="input-group flex-fill">
+                            <label for="ticketDescription">Description &amp; Steps to Reproduce</label>
+                            <textarea id="ticketDescription" placeholder="1. Go to page...&#10;2. Click on...&#10;3. Expected... but got..." maxlength="2000" required></textarea>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" id="cancelBtn" class="secondary-btn">Cancel</button>
+                            <button type="submit" id="saveTicketBtn" class="primary-btn glow">Submit Ticket</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirm Delete Modal -->
+        <div id="confirmModal" class="modal hidden" role="dialog" aria-modal="true">
+            <div class="modal-content glass" style="max-width: 420px;">
+                <div class="modal-header">
+                    <h2>Delete ticket?</h2>
+                </div>
+                <div class="modal-body">
+                    <p style="color: var(--text-secondary); margin-bottom: 1.5rem;" id="confirmText">This cannot be undone.</p>
+                    <div class="modal-footer">
+                        <button type="button" id="confirmCancelBtn" class="secondary-btn">Cancel</button>
+                        <button type="button" id="confirmDeleteBtn" class="primary-btn" style="background: #EF4444;">Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast notifications -->
+        <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+    </div>
+
+    <!-- Supabase library (loaded from CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Your configuration -->
+    <script src="config.js"></script>
+    <!-- Application logic -->
     <script src="app.js"></script>
 </body>
 </html>
