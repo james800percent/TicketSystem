@@ -564,3 +564,33 @@ textarea { resize: vertical; min-height: 120px; }
     .container { padding: 0 1rem; }
     .modal-content { padding: 1.5rem; }
 }
+
+/* ---------- Assignment tracking ---------- */
+.assignment-line {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    padding: 0.4rem 0.6rem;
+    background: rgba(124, 58, 237, 0.08);
+    border-left: 2px solid #7C3AED;
+    border-radius: 4px;
+}
+.assignment-line.muted {
+    background: rgba(255, 255, 255, 0.03);
+    border-left-color: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.4);
+}
+.assignment-line strong {
+    color: var(--text-primary);
+    font-weight: 600;
+    margin-right: 0.4rem;
+}
+.badge.b-assigned {
+    background: rgba(124, 58, 237, 0.18);
+    color: #C4B5FD;
+    border: 1px solid rgba(124, 58, 237, 0.35);
+}
+input[readonly] {
+    opacity: 0.7;
+    cursor: not-allowed;
+}

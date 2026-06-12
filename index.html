@@ -81,6 +81,13 @@
                         <option value="Medium">Medium</option>
                         <option value="Low">Low</option>
                     </select>
+                    <select id="assignedToFilter" class="dropdown" aria-label="Filter by assignee">
+                        <option value="All">All Assignees</option>
+                        <option value="__unassigned__">Unassigned</option>
+                    </select>
+                    <select id="assignedByFilter" class="dropdown" aria-label="Filter by assigner">
+                        <option value="All">All Assigners</option>
+                    </select>
                 </div>
             </div>
 
@@ -128,6 +135,19 @@
                             <div class="input-group half">
                                 <label for="ticketReporter">Reporter Name</label>
                                 <input type="text" id="ticketReporter" placeholder="Your Name" autocomplete="name" maxlength="60" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="input-group half">
+                                <label for="ticketAssignedTo">Assigned To</label>
+                                <select id="ticketAssignedTo">
+                                    <option value="">— Unassigned —</option>
+                                </select>
+                            </div>
+                            <div class="input-group half">
+                                <label for="ticketAssignedBy">Assigned By</label>
+                                <input type="text" id="ticketAssignedBy" placeholder="Auto-filled" readonly>
                             </div>
                         </div>
 

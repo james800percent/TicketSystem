@@ -28,12 +28,16 @@ const editingTicketId = document.getElementById('editingTicketId');
 const titleInput = document.getElementById('ticketTitle');
 const priorityInput = document.getElementById('ticketPriority');
 const reporterInput = document.getElementById('ticketReporter');
+const assignedToInput = document.getElementById('ticketAssignedTo');
+const assignedByInput = document.getElementById('ticketAssignedBy');
 const descriptionInput = document.getElementById('ticketDescription');
 const saveTicketBtn = document.getElementById('saveTicketBtn');
 
 const searchInput = document.getElementById('searchInput');
 const statusFilter = document.getElementById('statusFilter');
 const priorityFilter = document.getElementById('priorityFilter');
+const assignedToFilter = document.getElementById('assignedToFilter');
+const assignedByFilter = document.getElementById('assignedByFilter');
 const openCountEl = document.getElementById('openCount');
 const resolvedCountEl = document.getElementById('resolvedCount');
 
@@ -52,6 +56,43 @@ const toast = document.getElementById('toast');
 // ---------- State ----------
 let allTickets = [];
 let pendingDeleteId = null;
+
+// ---------- Team Members (hardcoded list) ----------
+const TEAM_MEMBERS = [
+    'James Brady',
+    'Nick Gillis',
+    'Evan Walters',
+    'Glenn Lundy',
+    'Hannah Gross',
+    'Brandon Randolph',
+    'Jessica Bailey',
+    'Sam Cox'
+];
+
+function populateTeamDropdowns() {
+    // "Assigned To" form dropdown
+    for (const name of TEAM_MEMBERS) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        assignedToInput.appendChild(opt);
+    }
+    // Filter: "All Assignees"
+    for (const name of TEAM_MEMBERS) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        assignedToFilter.appendChild(opt);
+    }
+    // Filter: "All Assigners"
+    for (const name of TEAM_MEMBERS) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        assignedByFilter.appendChild(opt);
+    }
+}
+populateTeamDropdowns();
 
 // ============================================================
 // AUTH — MAGIC LINK
@@ -181,7 +222,10 @@ async function createTicket(ticket) {
         reporter: ticket.reporter,
         description: ticket.description,
         status: 'Open',
-        created_by: user.id
+        created_by: user.id,
+        assigned_to: ticket.assigned_to || null,
+        assigned_by: ticket.assigned_to ? ticket.assigned_by : null,
+        assigned_at: ticket.assigned_to ? new Date().toISOString() : null
     };
     const { data, error } = await db.from('tickets').insert(payload).select().single();
     if (error) { showToast('Could not save: ' + error.message, 'error'); return null; }
@@ -240,6 +284,9 @@ document.addEventListener('keydown', (e) => {
 });
 
 function openModal(ticket = null) {
+    // "Assigned By" is always whoever is logged in (best guess: their team name from email)
+    const currentAssigner = guessCurrentUserName();
+
     if (ticket) {
         modalTitle.textContent = 'Edit Ticket';
         saveTicketBtn.textContent = 'Save Changes';
@@ -247,16 +294,37 @@ function openModal(ticket = null) {
         titleInput.value = ticket.title;
         priorityInput.value = ticket.priority;
         reporterInput.value = ticket.reporter;
+        assignedToInput.value = ticket.assigned_to || '';
+        // Preserve original assigner if already set; otherwise use current user
+        assignedByInput.value = ticket.assigned_by || (ticket.assigned_to ? currentAssigner : '');
         descriptionInput.value = ticket.description;
     } else {
         modalTitle.textContent = 'Create New Ticket';
         saveTicketBtn.textContent = 'Submit Ticket';
         editingTicketId.value = '';
         ticketForm.reset();
+        assignedByInput.value = currentAssigner;
     }
     modal.classList.remove('hidden');
     requestAnimationFrame(() => modal.classList.add('active'));
     setTimeout(() => titleInput.focus(), 200);
+}
+
+function guessCurrentUserName() {
+    // Try to match the logged-in user's email to a team member name.
+    // Falls back to the email's local-part (e.g. 'james' from 'james@x.com').
+    const email = (userEmailEl.textContent || '').toLowerCase();
+    if (!email) return '';
+    for (const name of TEAM_MEMBERS) {
+        const first = name.split(' ')[0].toLowerCase();
+        const last  = name.split(' ').slice(-1)[0].toLowerCase();
+        if (email.startsWith(first + '@') || email.startsWith(first + '.') ||
+            email.startsWith(first + last) || email.startsWith(last + first) ||
+            email.includes(first + '.' + last) || email.includes(last + '.' + first)) {
+            return name;
+        }
+    }
+    return email.split('@')[0];
 }
 
 function closeModal() {
@@ -270,6 +338,8 @@ ticketForm.addEventListener('submit', async (e) => {
     const priority = priorityInput.value;
     const reporter = reporterInput.value.trim();
     const description = descriptionInput.value.trim();
+    const assigned_to = assignedToInput.value.trim();
+    const assigned_by = assignedByInput.value.trim();
     if (!title || !reporter || !description) return;
 
     saveTicketBtn.disabled = true;
@@ -277,10 +347,26 @@ ticketForm.addEventListener('submit', async (e) => {
     saveTicketBtn.textContent = 'Saving...';
 
     if (editingTicketId.value) {
-        const updated = await updateTicket(editingTicketId.value, { title, priority, reporter, description });
+        // Find the existing ticket to know if assignment is changing
+        const existing = allTickets.find(t => t.id === editingTicketId.value);
+        const wasAssignedTo = existing?.assigned_to || '';
+        const updates = { title, priority, reporter, description, assigned_to: assigned_to || null };
+
+        if (assigned_to && assigned_to !== wasAssignedTo) {
+            // New assignment (or reassignment) — stamp the assigner and date
+            updates.assigned_by = assigned_by || guessCurrentUserName();
+            updates.assigned_at = new Date().toISOString();
+        } else if (!assigned_to) {
+            // Cleared assignment
+            updates.assigned_by = null;
+            updates.assigned_at = null;
+        }
+        // (else: same assignee — leave assigned_by/assigned_at unchanged)
+
+        const updated = await updateTicket(editingTicketId.value, updates);
         if (updated) showToast('Ticket updated');
     } else {
-        const created = await createTicket({ title, priority, reporter, description });
+        const created = await createTicket({ title, priority, reporter, description, assigned_to, assigned_by });
         if (created) showToast('Ticket created');
     }
 
@@ -333,6 +419,8 @@ searchInput.addEventListener('input', () => {
 });
 statusFilter.addEventListener('change', renderTickets);
 priorityFilter.addEventListener('change', renderTickets);
+assignedToFilter.addEventListener('change', renderTickets);
+assignedByFilter.addEventListener('change', renderTickets);
 
 function updateStats() {
     const open = allTickets.filter(t => t.status === 'Open').length;
@@ -352,11 +440,16 @@ function renderTickets() {
     const query = searchInput.value.toLowerCase();
     const statusVal = statusFilter.value;
     const priorityVal = priorityFilter.value;
+    const assignedToVal = assignedToFilter.value;
+    const assignedByVal = assignedByFilter.value;
 
     const filtered = allTickets.filter(t =>
         (t.title.toLowerCase().includes(query) || (t.ticket_code || '').toLowerCase().includes(query)) &&
         (statusVal === 'All' || t.status === statusVal) &&
-        (priorityVal === 'All' || t.priority === priorityVal)
+        (priorityVal === 'All' || t.priority === priorityVal) &&
+        (assignedToVal === 'All' ||
+            (assignedToVal === '__unassigned__' ? !t.assigned_to : t.assigned_to === assignedToVal)) &&
+        (assignedByVal === 'All' || t.assigned_by === assignedByVal)
     );
 
     grid.replaceChildren();
@@ -381,6 +474,9 @@ function renderTickets() {
         card.className = 'card';
         card.dataset.id = t.id;
         const initials = (t.reporter || '??').substring(0, 2).toUpperCase();
+        const assignmentLine = t.assigned_to
+            ? `<div class="assignment-line"><strong>Assigned to:</strong> ${escapeHTML(t.assigned_to)}${t.assigned_by ? ` &middot; by ${escapeHTML(t.assigned_by)}` : ''}${t.assigned_at ? ` &middot; ${formatDate(t.assigned_at)}` : ''}</div>`
+            : `<div class="assignment-line muted"><strong>Assigned to:</strong> Unassigned</div>`;
         card.innerHTML = `
             <div class="card-header">
                 <div>
@@ -388,10 +484,12 @@ function renderTickets() {
                     <h3 class="card-title">${escapeHTML(t.title)}</h3>
                 </div>
             </div>
-            <div style="display:flex;gap:8px;margin-bottom:8px;">
+            <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
                 <span class="badge s-${t.status.toLowerCase()}">${escapeHTML(t.status)}</span>
                 <span class="badge p-${t.priority.toLowerCase()}">${escapeHTML(t.priority)}</span>
+                ${t.assigned_to ? `<span class="badge b-assigned">➜ ${escapeHTML(t.assigned_to)}</span>` : ''}
             </div>
+            ${assignmentLine}
             <div class="card-desc">${escapeHTML(t.description).replace(/\n/g,'<br>')}</div>
             <div class="card-footer">
                 <div class="reporter">
@@ -442,6 +540,13 @@ grid.addEventListener('click', async (e) => {
 // ============================================================
 // TOAST
 // ============================================================
+
+function formatDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
 let toastTimer;
 function showToast(msg, kind = 'success') {
