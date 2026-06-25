@@ -38,6 +38,7 @@ const statusFilter = document.getElementById('statusFilter');
 const priorityFilter = document.getElementById('priorityFilter');
 const assignedToFilter = document.getElementById('assignedToFilter');
 const assignedByFilter = document.getElementById('assignedByFilter');
+const sortBy = document.getElementById('sortBy');
 const openCountEl = document.getElementById('openCount');
 const resolvedCountEl = document.getElementById('resolvedCount');
 
@@ -421,6 +422,17 @@ statusFilter.addEventListener('change', renderTickets);
 priorityFilter.addEventListener('change', renderTickets);
 assignedToFilter.addEventListener('change', renderTickets);
 assignedByFilter.addEventListener('change', renderTickets);
+sortBy.addEventListener('change', renderTickets);
+
+// ---------- Sorting ----------
+const PRIORITY_RANK = { High: 3, Medium: 2, Low: 1 };
+const ts = (v) => { const d = new Date(v); return isNaN(d) ? 0 : d.getTime(); };
+const SORTERS = {
+    newest:   (a, b) => ts(b.created_at) - ts(a.created_at),
+    oldest:   (a, b) => ts(a.created_at) - ts(b.created_at),
+    updated:  (a, b) => ts(b.updated_at) - ts(a.updated_at),
+    priority: (a, b) => (PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority]) || (ts(b.created_at) - ts(a.created_at)),
+};
 
 function updateStats() {
     const open = allTickets.filter(t => t.status === 'Open').length;
@@ -452,6 +464,8 @@ function renderTickets() {
         (assignedByVal === 'All' || t.assigned_by === assignedByVal)
     );
 
+    filtered.sort(SORTERS[sortBy.value] || SORTERS.newest);
+
     grid.replaceChildren();
 
     if (filtered.length === 0) {
@@ -477,6 +491,9 @@ function renderTickets() {
         const assignmentLine = t.assigned_to
             ? `<div class="assignment-line"><strong>Assigned to:</strong> ${escapeHTML(t.assigned_to)}${t.assigned_by ? ` &middot; by ${escapeHTML(t.assigned_by)}` : ''}${t.assigned_at ? ` &middot; ${formatDate(t.assigned_at)}` : ''}</div>`
             : `<div class="assignment-line muted"><strong>Assigned to:</strong> Unassigned</div>`;
+        const updatedLine = t.updated_at
+            ? `<div class="card-updated">Updated ${escapeHTML(formatDateTime(t.updated_at))}</div>`
+            : '';
         card.innerHTML = `
             <div class="card-header">
                 <div>
@@ -491,6 +508,7 @@ function renderTickets() {
             </div>
             ${assignmentLine}
             <div class="card-desc">${escapeHTML(t.description).replace(/\n/g,'<br>')}</div>
+            ${updatedLine}
             <div class="card-footer">
                 <div class="reporter">
                     <div class="reporter-avatar">${escapeHTML(initials)}</div>
@@ -546,6 +564,20 @@ function formatDate(iso) {
     const d = new Date(iso);
     if (isNaN(d)) return '';
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// Absolute date + time in 12-hour US Eastern time, e.g. "Jun 25, 2026, 3:04 PM EDT".
+// timeZoneName: 'short' auto-labels EST/EDT correctly (daylight-saving aware).
+function formatDateTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    return d.toLocaleString('en-US', {
+        timeZone: 'America/New_York',
+        month: 'short', day: 'numeric', year: 'numeric',
+        hour: 'numeric', minute: '2-digit',
+        timeZoneName: 'short'
+    });
 }
 
 let toastTimer;
