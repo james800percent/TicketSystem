@@ -1,0 +1,9 @@
+# Node
+node_modules/
+
+# Supabase local / secrets
+.supabase/
+supabase/.temp/
+supabase/.env
+.env
+.env.local
