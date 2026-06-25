@@ -88,6 +88,10 @@
                     <select id="assignedByFilter" class="dropdown" aria-label="Filter by assigner">
                         <option value="All">All Assigners</option>
                     </select>
+                    <select id="projectFilter" class="dropdown" aria-label="Filter by project">
+                        <option value="All">All Projects</option>
+                        <option value="__none__">No Project</option>
+                    </select>
                     <select id="sortBy" class="dropdown" aria-label="Sort tickets">
                         <option value="newest">Sort: Newest created</option>
                         <option value="updated">Sort: Recently updated</option>
@@ -143,6 +147,13 @@
                                 <input type="text" id="ticketReporter" list="teamMembersList" placeholder="Select or type a name" autocomplete="off" maxlength="60" required>
                                 <datalist id="teamMembersList"></datalist>
                             </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="ticketProject">Project</label>
+                            <select id="ticketProject">
+                                <option value="">— None —</option>
+                            </select>
                         </div>
 
                         <div class="form-row">
