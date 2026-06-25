@@ -139,8 +139,9 @@
                                 </select>
                             </div>
                             <div class="input-group half">
-                                <label for="ticketReporter">Reporter Name</label>
-                                <input type="text" id="ticketReporter" placeholder="Your Name" autocomplete="name" maxlength="60" required>
+                                <label for="ticketReporter">Submitted By</label>
+                                <input type="text" id="ticketReporter" list="teamMembersList" placeholder="Select or type a name" autocomplete="off" maxlength="60" required>
+                                <datalist id="teamMembersList"></datalist>
                             </div>
                         </div>
 
