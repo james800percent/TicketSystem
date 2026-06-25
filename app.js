@@ -30,6 +30,7 @@ const priorityInput = document.getElementById('ticketPriority');
 const reporterInput = document.getElementById('ticketReporter');
 const assignedToInput = document.getElementById('ticketAssignedTo');
 const assignedByInput = document.getElementById('ticketAssignedBy');
+const projectInput = document.getElementById('ticketProject');
 const descriptionInput = document.getElementById('ticketDescription');
 const saveTicketBtn = document.getElementById('saveTicketBtn');
 
@@ -39,6 +40,7 @@ const priorityFilter = document.getElementById('priorityFilter');
 const assignedToFilter = document.getElementById('assignedToFilter');
 const assignedByFilter = document.getElementById('assignedByFilter');
 const sortBy = document.getElementById('sortBy');
+const projectFilter = document.getElementById('projectFilter');
 const openCountEl = document.getElementById('openCount');
 const resolvedCountEl = document.getElementById('resolvedCount');
 
@@ -70,6 +72,13 @@ const TEAM_MEMBERS = [
     'Sam Cox'
 ];
 
+// ---------- Projects (hardcoded list) ----------
+const PROJECTS = [
+    'Morning 5',
+    'AlainaV2',
+    'TicketSystem'
+];
+
 function populateTeamDropdowns() {
     // "Assigned To" form dropdown
     for (const name of TEAM_MEMBERS) {
@@ -98,6 +107,18 @@ function populateTeamDropdowns() {
         const opt = document.createElement('option');
         opt.value = name;
         reporterList.appendChild(opt);
+    }
+    // Project: modal selector + "All Projects" filter
+    for (const name of PROJECTS) {
+        const formOpt = document.createElement('option');
+        formOpt.value = name;
+        formOpt.textContent = name;
+        projectInput.appendChild(formOpt);
+
+        const filterOpt = document.createElement('option');
+        filterOpt.value = name;
+        filterOpt.textContent = name;
+        projectFilter.appendChild(filterOpt);
     }
 }
 populateTeamDropdowns();
@@ -233,7 +254,8 @@ async function createTicket(ticket) {
         created_by: user.id,
         assigned_to: ticket.assigned_to || null,
         assigned_by: ticket.assigned_to ? ticket.assigned_by : null,
-        assigned_at: ticket.assigned_to ? new Date().toISOString() : null
+        assigned_at: ticket.assigned_to ? new Date().toISOString() : null,
+        project: ticket.project || null
     };
     const { data, error } = await db.from('tickets').insert(payload).select().single();
     if (error) { showToast('Could not save: ' + error.message, 'error'); return null; }
@@ -305,6 +327,7 @@ function openModal(ticket = null) {
         assignedToInput.value = ticket.assigned_to || '';
         // Preserve original assigner if already set; otherwise use current user
         assignedByInput.value = ticket.assigned_by || (ticket.assigned_to ? currentAssigner : '');
+        projectInput.value = ticket.project || '';
         descriptionInput.value = ticket.description;
     } else {
         modalTitle.textContent = 'Create New Ticket';
@@ -349,6 +372,7 @@ ticketForm.addEventListener('submit', async (e) => {
     const description = descriptionInput.value.trim();
     const assigned_to = assignedToInput.value.trim();
     const assigned_by = assignedByInput.value.trim();
+    const project = projectInput.value;
     if (!title || !reporter || !description) return;
 
     saveTicketBtn.disabled = true;
@@ -359,7 +383,7 @@ ticketForm.addEventListener('submit', async (e) => {
         // Find the existing ticket to know if assignment is changing
         const existing = allTickets.find(t => t.id === editingTicketId.value);
         const wasAssignedTo = existing?.assigned_to || '';
-        const updates = { title, priority, reporter, description, assigned_to: assigned_to || null };
+        const updates = { title, priority, reporter, description, assigned_to: assigned_to || null, project: project || null };
 
         if (assigned_to && assigned_to !== wasAssignedTo) {
             // New assignment (or reassignment) — stamp the assigner and date
@@ -375,7 +399,7 @@ ticketForm.addEventListener('submit', async (e) => {
         const updated = await updateTicket(editingTicketId.value, updates);
         if (updated) showToast('Ticket updated');
     } else {
-        const created = await createTicket({ title, priority, reporter, description, assigned_to, assigned_by });
+        const created = await createTicket({ title, priority, reporter, description, assigned_to, assigned_by, project });
         if (created) showToast('Ticket created');
     }
 
@@ -431,6 +455,7 @@ priorityFilter.addEventListener('change', renderTickets);
 assignedToFilter.addEventListener('change', renderTickets);
 assignedByFilter.addEventListener('change', renderTickets);
 sortBy.addEventListener('change', renderTickets);
+projectFilter.addEventListener('change', renderTickets);
 
 // ---------- Sorting ----------
 const PRIORITY_RANK = { High: 3, Medium: 2, Low: 1 };
@@ -462,6 +487,7 @@ function renderTickets() {
     const priorityVal = priorityFilter.value;
     const assignedToVal = assignedToFilter.value;
     const assignedByVal = assignedByFilter.value;
+    const projectVal = projectFilter.value;
 
     const filtered = allTickets.filter(t =>
         (t.title.toLowerCase().includes(query) || (t.ticket_code || '').toLowerCase().includes(query)) &&
@@ -469,7 +495,8 @@ function renderTickets() {
         (priorityVal === 'All' || t.priority === priorityVal) &&
         (assignedToVal === 'All' ||
             (assignedToVal === '__unassigned__' ? !t.assigned_to : t.assigned_to === assignedToVal)) &&
-        (assignedByVal === 'All' || t.assigned_by === assignedByVal)
+        (assignedByVal === 'All' || t.assigned_by === assignedByVal) &&
+        (projectVal === 'All' || (projectVal === '__none__' ? !t.project : t.project === projectVal))
     );
 
     filtered.sort(SORTERS[sortBy.value] || SORTERS.newest);
@@ -513,6 +540,7 @@ function renderTickets() {
                 <span class="badge s-${t.status.toLowerCase()}">${escapeHTML(t.status)}</span>
                 <span class="badge p-${t.priority.toLowerCase()}">${escapeHTML(t.priority)}</span>
                 ${t.assigned_to ? `<span class="badge b-assigned">➜ ${escapeHTML(t.assigned_to)}</span>` : ''}
+                ${t.project ? `<span class="badge b-project">${escapeHTML(t.project)}</span>` : ''}
             </div>
             ${assignmentLine}
             <div class="card-desc">${escapeHTML(t.description).replace(/\n/g,'<br>')}</div>

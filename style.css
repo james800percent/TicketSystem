@@ -597,6 +597,11 @@ textarea { resize: vertical; min-height: 120px; }
     color: #C4B5FD;
     border: 1px solid rgba(124, 58, 237, 0.35);
 }
+.badge.b-project {
+    background: rgba(59, 130, 246, 0.14);
+    color: #93C5FD;
+    border: 1px solid rgba(59, 130, 246, 0.30);
+}
 input[readonly] {
     opacity: 0.7;
     cursor: not-allowed;
