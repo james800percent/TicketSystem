@@ -92,6 +92,13 @@ function populateTeamDropdowns() {
         opt.textContent = name;
         assignedByFilter.appendChild(opt);
     }
+    // "Submitted By" autocomplete list (free text still allowed)
+    const reporterList = document.getElementById('teamMembersList');
+    for (const name of TEAM_MEMBERS) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        reporterList.appendChild(opt);
+    }
 }
 populateTeamDropdowns();
 
@@ -305,6 +312,7 @@ function openModal(ticket = null) {
         editingTicketId.value = '';
         ticketForm.reset();
         assignedByInput.value = currentAssigner;
+        reporterInput.value = currentAssigner; // default "Submitted By" to the logged-in user
     }
     modal.classList.remove('hidden');
     requestAnimationFrame(() => modal.classList.add('active'));
