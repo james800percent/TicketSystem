@@ -1,0 +1,16 @@
+{
+  "name": "ticketsystem",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BugTracker — Supabase-backed ticket system",
+  "scripts": {
+    "db:pull": "supabase db pull",
+    "db:push": "supabase db push",
+    "db:diff": "supabase db diff",
+    "db:link": "supabase link --project-ref epiavflesezsxxjnmrxl"
+  },
+  "devDependencies": {
+    "pg": "^8.22.0",
+    "supabase": "^2.108.0"
+  }
+}
