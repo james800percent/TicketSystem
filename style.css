@@ -368,6 +368,12 @@ input:focus, textarea:focus, select:focus {
 .badge.p-low { background: var(--priority-low-bg); color: var(--priority-low); }
 .badge.s-open { background: var(--status-open-bg); color: var(--status-open); border: 1px solid rgba(59, 130, 246, 0.2); }
 .badge.s-resolved { background: var(--status-resolved-bg); color: var(--status-resolved); border: 1px solid rgba(16, 185, 129, 0.2); }
+.badge.b-type { background: rgba(148, 163, 184, 0.14); color: #CBD5E1; border: 1px solid rgba(148, 163, 184, 0.30); }
+
+/* Card border tinted to the ticket's priority */
+.card.pr-high { border-color: var(--priority-high); }
+.card.pr-medium { border-color: var(--priority-medium); }
+.card.pr-low { border-color: var(--priority-low); }
 
 .card-desc {
     color: var(--text-secondary);
@@ -680,6 +686,36 @@ textarea { resize: vertical; min-height: 120px; }
     border-radius: 5px;
     border: 1px solid var(--border-color);
 }
+
+/* ---------- Team management ---------- */
+.team-add-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+.team-add-row input { flex: 1; min-width: 120px; }
+.team-add-row .primary-btn { flex: 0 0 auto; }
+.team-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 50vh;
+    overflow-y: auto;
+}
+.team-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+.team-row .team-name { flex: 0 0 9rem; font-weight: 600; }
+.team-row input { flex: 1; min-width: 100px; }
+.team-row .action-btn { flex: 0 0 auto; }
+
 input[readonly] {
     opacity: 0.7;
     cursor: not-allowed;

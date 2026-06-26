@@ -27,6 +27,7 @@ const ticketForm = document.getElementById('ticketForm');
 const editingTicketId = document.getElementById('editingTicketId');
 const titleInput = document.getElementById('ticketTitle');
 const priorityInput = document.getElementById('ticketPriority');
+const typeInput = document.getElementById('ticketType');
 const reporterInput = document.getElementById('ticketReporter');
 const assignedToInput = document.getElementById('ticketAssignedTo');
 const assignedByInput = document.getElementById('ticketAssignedBy');
@@ -64,17 +65,8 @@ let allTickets = [];
 let pendingDeleteId = null;
 let modalAttachments = []; // attachments being edited in the open modal
 
-// ---------- Team Members (hardcoded list) ----------
-const TEAM_MEMBERS = [
-    'James Brady',
-    'Nick Gillis',
-    'Evan Walters',
-    'Glenn Lundy',
-    'Hannah Gross',
-    'Brandon Randolph',
-    'Jessica Bailey',
-    'Sam Cox'
-];
+// ---------- Team Members (loaded from the team_members table) ----------
+let teamMembers = []; // [{ id, name, email, github_handle }]
 
 // ---------- Projects (hardcoded list) ----------
 const PROJECTS = [
@@ -83,49 +75,49 @@ const PROJECTS = [
     'TicketSystem'
 ];
 
-function populateTeamDropdowns() {
-    // "Assigned To" form dropdown
-    for (const name of TEAM_MEMBERS) {
-        const opt = document.createElement('option');
-        opt.value = name;
-        opt.textContent = name;
-        assignedToInput.appendChild(opt);
-    }
-    // Filter: "All Assignees"
-    for (const name of TEAM_MEMBERS) {
-        const opt = document.createElement('option');
-        opt.value = name;
-        opt.textContent = name;
-        assignedToFilter.appendChild(opt);
-    }
-    // Filter: "All Assigners"
-    for (const name of TEAM_MEMBERS) {
-        const opt = document.createElement('option');
-        opt.value = name;
-        opt.textContent = name;
-        assignedByFilter.appendChild(opt);
-    }
-    // "Submitted By" autocomplete list (free text still allowed)
-    const reporterList = document.getElementById('teamMembersList');
-    for (const name of TEAM_MEMBERS) {
-        const opt = document.createElement('option');
-        opt.value = name;
-        reporterList.appendChild(opt);
-    }
-    // Project: modal selector + "All Projects" filter
-    for (const name of PROJECTS) {
-        const formOpt = document.createElement('option');
-        formOpt.value = name;
-        formOpt.textContent = name;
-        projectInput.appendChild(formOpt);
+function optionEl(value, label) {
+    const o = document.createElement('option');
+    o.value = value;
+    o.textContent = label;
+    return o;
+}
 
-        const filterOpt = document.createElement('option');
-        filterOpt.value = name;
-        filterOpt.textContent = name;
-        projectFilter.appendChild(filterOpt);
+// Projects are static — populate once at load.
+function populateProjectDropdowns() {
+    for (const name of PROJECTS) {
+        projectInput.appendChild(optionEl(name, name));
+        projectFilter.appendChild(optionEl(name, name));
     }
 }
-populateTeamDropdowns();
+populateProjectDropdowns();
+
+// Team-driven selects are rebuilt whenever the team list (re)loads.
+function populateTeamDropdowns() {
+    const names = teamMembers.map(m => m.name);
+    assignedToInput.replaceChildren(optionEl('', '— Unassigned —'), ...names.map(n => optionEl(n, n)));
+    assignedByInput.replaceChildren(optionEl('', '— —'), ...names.map(n => optionEl(n, n)));
+    assignedToFilter.replaceChildren(optionEl('All', 'All Assignees'), optionEl('__unassigned__', 'Unassigned'), ...names.map(n => optionEl(n, n)));
+    assignedByFilter.replaceChildren(optionEl('All', 'All Assigners'), ...names.map(n => optionEl(n, n)));
+}
+
+async function loadTeam() {
+    const { data, error } = await db.from('team_members').select('*').eq('active', true).order('name');
+    if (error) { showToast('Could not load team: ' + error.message, 'error'); return; }
+    teamMembers = data || [];
+    populateTeamDropdowns();
+    renderTeamList();
+}
+
+// Match the logged-in user to their team record by email; fall back to email prefix.
+function currentUserName() {
+    const email = (userEmailEl.textContent || '').toLowerCase();
+    if (email) {
+        const match = teamMembers.find(m => (m.email || '').toLowerCase() === email);
+        if (match) return match.name;
+        return email.split('@')[0];
+    }
+    return '';
+}
 
 // ============================================================
 // AUTH — MAGIC LINK
@@ -199,9 +191,7 @@ function showApp(user) {
     authScreen.classList.add('hidden');
     appScreen.classList.remove('hidden');
     userEmailEl.textContent = user.email;
-    if (!reporterInput.value) {
-        reporterInput.value = user.email.split('@')[0];
-    }
+    loadTeam();
     loadTickets();
     subscribeToChanges();
 }
@@ -252,6 +242,7 @@ async function createTicket(ticket) {
         ticket_code: generateCode(),
         title: ticket.title,
         priority: ticket.priority,
+        type: ticket.type || 'Bug',
         reporter: ticket.reporter,
         description: ticket.description,
         status: 'Open',
@@ -320,8 +311,8 @@ document.addEventListener('keydown', (e) => {
 });
 
 function openModal(ticket = null) {
-    // "Assigned By" is always whoever is logged in (best guess: their team name from email)
-    const currentAssigner = guessCurrentUserName();
+    // The logged-in user's team name — defaults for "Submitted By" and "Assigned By".
+    const currentAssigner = currentUserName();
 
     if (ticket) {
         modalTitle.textContent = 'Edit Ticket';
@@ -329,6 +320,7 @@ function openModal(ticket = null) {
         editingTicketId.value = ticket.id;
         titleInput.value = ticket.title;
         priorityInput.value = ticket.priority;
+        typeInput.value = ticket.type || 'Bug';
         reporterInput.value = ticket.reporter;
         assignedToInput.value = ticket.assigned_to || '';
         // Preserve original assigner if already set; otherwise use current user
@@ -350,23 +342,6 @@ function openModal(ticket = null) {
     modal.classList.remove('hidden');
     requestAnimationFrame(() => modal.classList.add('active'));
     setTimeout(() => titleInput.focus(), 200);
-}
-
-function guessCurrentUserName() {
-    // Try to match the logged-in user's email to a team member name.
-    // Falls back to the email's local-part (e.g. 'james' from 'james@x.com').
-    const email = (userEmailEl.textContent || '').toLowerCase();
-    if (!email) return '';
-    for (const name of TEAM_MEMBERS) {
-        const first = name.split(' ')[0].toLowerCase();
-        const last  = name.split(' ').slice(-1)[0].toLowerCase();
-        if (email.startsWith(first + '@') || email.startsWith(first + '.') ||
-            email.startsWith(first + last) || email.startsWith(last + first) ||
-            email.includes(first + '.' + last) || email.includes(last + '.' + first)) {
-            return name;
-        }
-    }
-    return email.split('@')[0];
 }
 
 function closeModal() {
@@ -471,6 +446,7 @@ ticketForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const title = titleInput.value.trim();
     const priority = priorityInput.value;
+    const type = typeInput.value;
     const reporter = reporterInput.value.trim();
     const description = descriptionInput.value.trim();
     const assigned_to = assignedToInput.value.trim();
@@ -488,11 +464,11 @@ ticketForm.addEventListener('submit', async (e) => {
         // Find the existing ticket to know if assignment is changing
         const existing = allTickets.find(t => t.id === editingTicketId.value);
         const wasAssignedTo = existing?.assigned_to || '';
-        const updates = { title, priority, reporter, description, assigned_to: assigned_to || null, project: project || null, is_private, attachments };
+        const updates = { title, priority, type, reporter, description, assigned_to: assigned_to || null, project: project || null, is_private, attachments };
 
         if (assigned_to && assigned_to !== wasAssignedTo) {
             // New assignment (or reassignment) — stamp the assigner and date
-            updates.assigned_by = assigned_by || guessCurrentUserName();
+            updates.assigned_by = assigned_by || currentUserName();
             updates.assigned_at = new Date().toISOString();
         } else if (!assigned_to) {
             // Cleared assignment
@@ -504,7 +480,7 @@ ticketForm.addEventListener('submit', async (e) => {
         const updated = await updateTicket(editingTicketId.value, updates);
         if (updated) showToast('Ticket updated');
     } else {
-        const created = await createTicket({ title, priority, reporter, description, assigned_to, assigned_by, project, is_private, attachments });
+        const created = await createTicket({ title, priority, type, reporter, description, assigned_to, assigned_by, project, is_private, attachments });
         if (created) showToast('Ticket created');
     }
 
@@ -625,7 +601,7 @@ function renderTickets() {
 
     for (const t of filtered) {
         const card = document.createElement('div');
-        card.className = 'card';
+        card.className = 'card pr-' + (t.priority || '').toLowerCase();
         card.dataset.id = t.id;
         const initials = (t.reporter || '??').substring(0, 2).toUpperCase();
         const assignmentLine = t.assigned_to
@@ -648,6 +624,7 @@ function renderTickets() {
             <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
                 <span class="badge s-${t.status.toLowerCase()}">${escapeHTML(t.status)}</span>
                 <span class="badge p-${t.priority.toLowerCase()}">${escapeHTML(t.priority)}</span>
+                ${t.type ? `<span class="badge b-type">${escapeHTML(t.type)}</span>` : ''}
                 ${t.assigned_to ? `<span class="badge b-assigned">➜ ${escapeHTML(t.assigned_to)}</span>` : ''}
                 ${t.project ? `<span class="badge b-project">${escapeHTML(t.project)}</span>` : ''}
                 ${t.is_private ? `<span class="badge b-private">🔒 Private</span>` : ''}
@@ -735,6 +712,79 @@ function showToast(msg, kind = 'success') {
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toast.classList.add('hidden'), 2500);
 }
+
+// ============================================================
+// TEAM MANAGEMENT
+// ============================================================
+
+const manageTeamBtn = document.getElementById('manageTeamBtn');
+const teamModal = document.getElementById('teamModal');
+const closeTeamBtn = document.getElementById('closeTeamBtn');
+const addMemberForm = document.getElementById('addMemberForm');
+const newMemberName = document.getElementById('newMemberName');
+const newMemberEmail = document.getElementById('newMemberEmail');
+const newMemberGithub = document.getElementById('newMemberGithub');
+const teamList = document.getElementById('teamList');
+
+manageTeamBtn.addEventListener('click', openTeamModal);
+closeTeamBtn.addEventListener('click', closeTeamModal);
+teamModal.addEventListener('click', (e) => { if (e.target === teamModal) closeTeamModal(); });
+
+function openTeamModal() {
+    renderTeamList();
+    teamModal.classList.remove('hidden');
+    requestAnimationFrame(() => teamModal.classList.add('active'));
+}
+function closeTeamModal() {
+    teamModal.classList.remove('active');
+    setTimeout(() => teamModal.classList.add('hidden'), 300);
+}
+
+function renderTeamList() {
+    if (!teamList) return;
+    teamList.replaceChildren();
+    for (const m of teamMembers) {
+        const row = document.createElement('div');
+        row.className = 'team-row';
+        row.innerHTML = `
+            <span class="team-name">${escapeHTML(m.name)}</span>
+            <input type="email" class="team-email" placeholder="email" value="${escapeHTML(m.email || '')}" maxlength="120">
+            <input type="text" class="team-github" placeholder="github" value="${escapeHTML(m.github_handle || '')}" maxlength="60">
+            <button type="button" class="action-btn" data-act="save">Save</button>
+            <button type="button" class="action-btn delete" data-act="remove">Remove</button>`;
+        row.querySelector('[data-act="save"]').addEventListener('click', async () => {
+            const email = row.querySelector('.team-email').value.trim() || null;
+            const github_handle = row.querySelector('.team-github').value.trim() || null;
+            const { error } = await db.from('team_members').update({ email, github_handle }).eq('id', m.id);
+            if (error) { showToast('Could not save: ' + error.message, 'error'); return; }
+            showToast('Saved');
+            loadTeam();
+        });
+        row.querySelector('[data-act="remove"]').addEventListener('click', async () => {
+            const { error } = await db.from('team_members').update({ active: false }).eq('id', m.id);
+            if (error) { showToast('Could not remove: ' + error.message, 'error'); return; }
+            showToast('Removed ' + m.name);
+            loadTeam();
+        });
+        teamList.appendChild(row);
+    }
+}
+
+addMemberForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = newMemberName.value.trim();
+    if (!name) return;
+    const payload = {
+        name,
+        email: newMemberEmail.value.trim() || null,
+        github_handle: newMemberGithub.value.trim() || null
+    };
+    const { error } = await db.from('team_members').insert(payload);
+    if (error) { showToast('Could not add: ' + error.message, 'error'); return; }
+    addMemberForm.reset();
+    showToast('Added ' + name);
+    loadTeam();
+});
 
 // ============================================================
 // INITIAL SESSION CHECK

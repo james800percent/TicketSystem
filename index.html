@@ -57,6 +57,7 @@
                     </button>
                     <div class="user-menu">
                         <span class="user-email" id="userEmail"></span>
+                        <button id="manageTeamBtn" class="secondary-btn small">Team</button>
                         <button id="signOutBtn" class="secondary-btn small">Sign Out</button>
                     </div>
                 </div>
@@ -143,11 +144,20 @@
                                 </select>
                             </div>
                             <div class="input-group half">
-                                <label for="ticketReporter">Submitted By</label>
-                                <input type="text" id="ticketReporter" list="teamMembersList" placeholder="Select or type a name" autocomplete="off" maxlength="60" required>
-                                <datalist id="teamMembersList"></datalist>
+                                <label for="ticketType">Type</label>
+                                <select id="ticketType">
+                                    <option>Bug</option>
+                                    <option>Todo</option>
+                                    <option>Feature Request</option>
+                                    <option>UI/UX Request</option>
+                                    <option>Improvement</option>
+                                    <option>Other</option>
+                                </select>
                             </div>
                         </div>
+
+                        <!-- Submitted By: auto-set to the logged-in user, still recorded -->
+                        <input type="hidden" id="ticketReporter">
 
                         <div class="input-group">
                             <label for="ticketProject">Project</label>
@@ -172,7 +182,9 @@
                             </div>
                             <div class="input-group half">
                                 <label for="ticketAssignedBy">Assigned By</label>
-                                <input type="text" id="ticketAssignedBy" placeholder="Auto-filled" readonly>
+                                <select id="ticketAssignedBy">
+                                    <option value="">— —</option>
+                                </select>
                             </div>
                         </div>
 
@@ -208,6 +220,27 @@
                         <button type="button" id="confirmCancelBtn" class="secondary-btn">Cancel</button>
                         <button type="button" id="confirmDeleteBtn" class="primary-btn" style="background: #EF4444;">Delete</button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Team Management Modal -->
+        <div id="teamModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="teamModalTitle">
+            <div class="modal-content glass">
+                <div class="modal-header">
+                    <h2 id="teamModalTitle">Team Members</h2>
+                    <button id="closeTeamBtn" class="icon-btn" aria-label="Close">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="addMemberForm" class="team-add-row">
+                        <input type="text" id="newMemberName" placeholder="Name" autocomplete="off" maxlength="60" required>
+                        <input type="email" id="newMemberEmail" placeholder="email (optional)" autocomplete="off" maxlength="120">
+                        <input type="text" id="newMemberGithub" placeholder="github (optional)" autocomplete="off" maxlength="60">
+                        <button type="submit" class="primary-btn">Add</button>
+                    </form>
+                    <div id="teamList" class="team-list"></div>
                 </div>
             </div>
         </div>
