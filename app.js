@@ -383,12 +383,13 @@ attachmentsInput.addEventListener('change', async (e) => {
     e.target.value = ''; // allow re-selecting the same file
     for (const file of files) {
         if (!file.type.startsWith('image/')) { showToast('Only image files are allowed', 'error'); continue; }
-        if (file.size > 10 * 1024 * 1024) { showToast(`${file.name} is over 10 MB`, 'error'); continue; }
         const item = { name: file.name, type: file.type, url: null, uploading: true };
         modalAttachments.push(item);
         renderAttachmentPreview();
         try {
-            const uploaded = await uploadAttachment(file);
+            const prepared = await toUploadableImage(file);
+            if (prepared.size > 10 * 1024 * 1024) throw new Error('image is over 10 MB');
+            const uploaded = await uploadAttachment(prepared);
             Object.assign(item, uploaded, { uploading: false });
         } catch (err) {
             modalAttachments = modalAttachments.filter(a => a !== item);
@@ -397,6 +398,32 @@ attachmentsInput.addEventListener('change', async (e) => {
         renderAttachmentPreview();
     }
 });
+
+// Convert an image to JPEG on the device so it thumbnails in every browser
+// (non-Apple browsers can't decode HEIC). The conversion runs on the device
+// that took the photo, whose browser CAN decode it. Also downscales very
+// large photos. Falls back to the original if the browser can't decode it.
+async function toUploadableImage(file) {
+    if (file.type === 'image/gif') return file; // keep animated GIFs intact
+    try {
+        const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+        const maxDim = 2000;
+        const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+        const w = Math.max(1, Math.round(bitmap.width * scale));
+        const h = Math.max(1, Math.round(bitmap.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+        if (bitmap.close) bitmap.close();
+        const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.9));
+        if (!blob) return file;
+        const base = (file.name || 'image').replace(/\.[^.]+$/, '');
+        return new File([blob], `${base}.jpg`, { type: 'image/jpeg' });
+    } catch {
+        return file; // e.g. a HEIC opened on a non-Apple browser — upload as-is
+    }
+}
 
 async function uploadAttachment(file) {
     // 1) Ask the Edge Function for a presigned PUT URL (auth token sent automatically).
