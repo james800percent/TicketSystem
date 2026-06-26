@@ -22,18 +22,23 @@
                 <div class="logo-icon"></div>
                 <h1>BugTracker</h1>
             </div>
-            <p class="auth-subtitle">Enter your email — we'll send you a magic sign-in link.</p>
+            <p class="auth-subtitle">Sign in with your password — or get a one-time link by email.</p>
 
             <form id="authForm">
                 <div class="input-group">
                     <label for="authEmail">Email</label>
-                    <input type="email" id="authEmail" placeholder="you@company.com" autocomplete="email" required>
+                    <input type="email" id="authEmail" placeholder="you@800percent.life" autocomplete="email" required>
+                </div>
+                <div class="input-group">
+                    <label for="authPassword">Password</label>
+                    <input type="password" id="authPassword" placeholder="Your password" autocomplete="current-password">
                 </div>
 
                 <div id="authError" class="auth-error hidden"></div>
                 <div id="authSuccess" class="auth-success hidden"></div>
 
-                <button type="submit" id="authSubmitBtn" class="primary-btn glow auth-submit">Send Magic Link</button>
+                <button type="submit" id="authSubmitBtn" class="primary-btn glow auth-submit">Sign In</button>
+                <button type="button" id="magicLinkBtn" class="secondary-btn auth-submit" style="margin-top:0.6rem;">Email me a magic link instead</button>
             </form>
         </div>
     </div>
