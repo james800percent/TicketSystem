@@ -11,7 +11,9 @@ const authScreen = document.getElementById('authScreen');
 const appScreen = document.getElementById('appScreen');
 const authForm = document.getElementById('authForm');
 const authEmail = document.getElementById('authEmail');
+const authPassword = document.getElementById('authPassword');
 const authSubmitBtn = document.getElementById('authSubmitBtn');
+const magicLinkBtn = document.getElementById('magicLinkBtn');
 const authError = document.getElementById('authError');
 const authSuccess = document.getElementById('authSuccess');
 const userEmailEl = document.getElementById('userEmail');
@@ -123,18 +125,37 @@ function currentUserName() {
 // AUTH — MAGIC LINK
 // ============================================================
 
+// Primary: email + password sign-in (reliable; no email dependency).
 authForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     hideAuthMessages();
     const email = authEmail.value.trim().toLowerCase();
+    const password = authPassword.value;
     if (!email) return;
+    if (!password) { showAuthError('Enter your password, or use the magic link below.'); return; }
 
     authSubmitBtn.disabled = true;
-    authSubmitBtn.textContent = 'Sending...';
-
+    authSubmitBtn.textContent = 'Signing in...';
     try {
-        // shouldCreateUser: false → only PRE-APPROVED users (added in Supabase) can sign in.
-        // Unknown emails get an "Email not allowed" type error.
+        const { error } = await db.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        // onAuthStateChange shows the app
+    } catch (err) {
+        const msg = (err.message || '').toLowerCase();
+        showAuthError(msg.includes('invalid login') ? 'Wrong email or password.' : (err.message || 'Sign-in failed.'));
+        authSubmitBtn.disabled = false;
+        authSubmitBtn.textContent = 'Sign In';
+    }
+});
+
+// Backup: email a one-time magic link (only works once SMTP delivers reliably).
+magicLinkBtn.addEventListener('click', async () => {
+    hideAuthMessages();
+    const email = authEmail.value.trim().toLowerCase();
+    if (!email) { showAuthError('Enter your email first.'); return; }
+    magicLinkBtn.disabled = true;
+    magicLinkBtn.textContent = 'Sending...';
+    try {
         const { error } = await db.auth.signInWithOtp({
             email,
             options: {
@@ -144,7 +165,6 @@ authForm.addEventListener('submit', async (e) => {
         });
         if (error) throw error;
         showAuthSuccess('✓ Check your email — click the magic link to sign in. (Check spam if you don\'t see it.)');
-        authSubmitBtn.textContent = 'Magic Link Sent';
     } catch (err) {
         const msg = (err.message || '').toLowerCase();
         if (msg.includes('signups not allowed') || msg.includes('user not allowed') || msg.includes('not found')) {
@@ -154,9 +174,9 @@ authForm.addEventListener('submit', async (e) => {
         } else {
             showAuthError(err.message || 'Something went wrong. Please try again.');
         }
-        authSubmitBtn.textContent = 'Send Magic Link';
-        authSubmitBtn.disabled = false;
     }
+    magicLinkBtn.disabled = false;
+    magicLinkBtn.textContent = 'Email me a magic link instead';
 });
 
 signOutBtn.addEventListener('click', async () => {
@@ -200,8 +220,9 @@ function showLogin() {
     appScreen.classList.add('hidden');
     authScreen.classList.remove('hidden');
     authEmail.value = '';
+    authPassword.value = '';
     authSubmitBtn.disabled = false;
-    authSubmitBtn.textContent = 'Send Magic Link';
+    authSubmitBtn.textContent = 'Sign In';
     hideAuthMessages();
     allTickets = [];
     if (realtimeChannel) {
