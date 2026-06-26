@@ -65,7 +65,8 @@ const toast = document.getElementById('toast');
 // ---------- State ----------
 let allTickets = [];
 let pendingDeleteId = null;
-let modalAttachments = []; // attachments being edited in the open modal
+let modalAttachments = [];     // attachments in the open modal (pending uploads + already-saved)
+let originalAttachments = [];  // the ticket's saved attachments when the modal opened (for delete-diff)
 
 // ---------- Team Members (loaded from the team_members table) ----------
 let teamMembers = []; // [{ id, name, email, github_handle }]
@@ -349,6 +350,7 @@ function openModal(ticket = null) {
         projectInput.value = ticket.project || '';
         privateInput.checked = !!ticket.is_private;
         modalAttachments = Array.isArray(ticket.attachments) ? ticket.attachments.map(a => ({ ...a })) : [];
+        originalAttachments = Array.isArray(ticket.attachments) ? ticket.attachments.map(a => ({ ...a })) : [];
         descriptionInput.value = ticket.description;
     } else {
         modalTitle.textContent = 'Create New Ticket';
@@ -358,6 +360,7 @@ function openModal(ticket = null) {
         assignedByInput.value = currentAssigner;
         reporterInput.value = currentAssigner; // default "Submitted By" to the logged-in user
         modalAttachments = [];
+        originalAttachments = [];
     }
     renderAttachmentPreview();
     modal.classList.remove('hidden');
@@ -366,6 +369,8 @@ function openModal(ticket = null) {
 }
 
 function closeModal() {
+    // Free any local preview URLs for pending (un-uploaded) files.
+    for (const a of modalAttachments) { if (a.previewUrl) URL.revokeObjectURL(a.previewUrl); }
     modal.classList.remove('active');
     setTimeout(() => modal.classList.add('hidden'), 300);
 }
@@ -379,21 +384,29 @@ attachmentsInput.addEventListener('change', async (e) => {
     e.target.value = ''; // allow re-selecting the same file
     for (const file of files) {
         if (!file.type.startsWith('image/')) { showToast('Only image files are allowed', 'error'); continue; }
-        const item = { name: file.name, type: file.type, url: null, uploading: true };
-        modalAttachments.push(item);
-        renderAttachmentPreview();
-        try {
-            const prepared = await toUploadableImage(file);
-            if (prepared.size > 10 * 1024 * 1024) throw new Error('image is over 10 MB');
-            const uploaded = await uploadAttachment(prepared);
-            Object.assign(item, uploaded, { uploading: false });
-        } catch (err) {
-            modalAttachments = modalAttachments.filter(a => a !== item);
-            showToast('Upload failed: ' + err.message, 'error');
-        }
+        // Prepare (convert/downscale) and preview LOCALLY. The real R2 upload is
+        // deferred until the ticket is saved, so cancelling never orphans a file.
+        const prepared = await toUploadableImage(file);
+        if (prepared.size > 10 * 1024 * 1024) { showToast(`${file.name} is over 10 MB`, 'error'); continue; }
+        modalAttachments.push({
+            file: prepared,
+            name: prepared.name,
+            type: prepared.type,
+            previewUrl: URL.createObjectURL(prepared),
+            pending: true
+        });
         renderAttachmentPreview();
     }
 });
+
+// Best-effort R2 cleanup when an attachment is removed or its ticket is deleted.
+async function deleteObject(url) {
+    try {
+        await db.functions.invoke('delete-object', { body: { url } });
+    } catch (err) {
+        console.warn('attachment delete failed', err);
+    }
+}
 
 // Convert an image to JPEG on the device so it thumbnails in every browser
 // (non-Apple browsers can't decode HEIC). The conversion runs on the device
@@ -438,27 +451,23 @@ function renderAttachmentPreview() {
     attachmentPreview.replaceChildren();
     for (const att of modalAttachments) {
         const thumb = document.createElement('div');
-        thumb.className = 'attachment-thumb' + (att.uploading ? ' uploading' : '');
-        if (att.url) {
-            const img = document.createElement('img');
-            img.src = att.url;
-            img.alt = att.name || 'attachment';
-            thumb.appendChild(img);
-        } else {
-            thumb.textContent = '⏳';
-        }
-        if (!att.uploading) {
-            const rm = document.createElement('button');
-            rm.type = 'button';
-            rm.className = 'attachment-remove';
-            rm.textContent = '×';
-            rm.setAttribute('aria-label', 'Remove attachment');
-            rm.addEventListener('click', () => {
-                modalAttachments = modalAttachments.filter(a => a !== att);
-                renderAttachmentPreview();
-            });
-            thumb.appendChild(rm);
-        }
+        thumb.className = 'attachment-thumb';
+        const img = document.createElement('img');
+        img.src = att.previewUrl || att.url;   // local preview for pending, public URL for saved
+        img.alt = att.name || 'attachment';
+        thumb.appendChild(img);
+
+        const rm = document.createElement('button');
+        rm.type = 'button';
+        rm.className = 'attachment-remove';
+        rm.textContent = '×';
+        rm.setAttribute('aria-label', 'Remove attachment');
+        rm.addEventListener('click', () => {
+            if (att.previewUrl) URL.revokeObjectURL(att.previewUrl);
+            modalAttachments = modalAttachments.filter(a => a !== att);
+            renderAttachmentPreview();
+        });
+        thumb.appendChild(rm);
         attachmentPreview.appendChild(thumb);
     }
 }
@@ -474,12 +483,30 @@ ticketForm.addEventListener('submit', async (e) => {
     const assigned_by = assignedByInput.value.trim();
     const project = projectInput.value;
     const is_private = privateInput.checked;
-    const attachments = modalAttachments.filter(a => a.url).map(a => ({ url: a.url, name: a.name, type: a.type }));
     if (!title || !reporter || !description) return;
 
     saveTicketBtn.disabled = true;
     const originalText = saveTicketBtn.textContent;
     saveTicketBtn.textContent = 'Saving...';
+
+    // Upload newly-picked files now (deferred until save). A file that fails to
+    // upload is skipped with a warning rather than blocking the whole save.
+    for (const att of modalAttachments) {
+        if (!att.pending) continue;
+        try {
+            const up = await uploadAttachment(att.file);
+            att.url = up.url; att.name = up.name; att.type = up.type; att.pending = false;
+            if (att.previewUrl) { URL.revokeObjectURL(att.previewUrl); att.previewUrl = null; }
+        } catch (err) {
+            showToast(`Could not upload ${att.name}: ${err.message}`, 'error');
+        }
+    }
+    const attachments = modalAttachments.filter(a => a.url).map(a => ({ url: a.url, name: a.name, type: a.type }));
+    // Delete from R2 any previously-saved attachments that were removed.
+    const keptUrls = new Set(attachments.map(a => a.url));
+    for (const o of originalAttachments) {
+        if (o.url && !keptUrls.has(o.url)) deleteObject(o.url);
+    }
 
     if (editingTicketId.value) {
         // Find the existing ticket to know if assignment is changing
@@ -535,9 +562,14 @@ confirmModal.addEventListener('click', (e) => {
 
 confirmDeleteBtn.addEventListener('click', async () => {
     if (!pendingDeleteId) return;
+    const ticket = allTickets.find(t => t.id === pendingDeleteId);
     const ok = await deleteTicketDB(pendingDeleteId);
     closeConfirm();
     if (ok) {
+        // Clean up the deleted ticket's attachments from R2 (best effort).
+        if (ticket && Array.isArray(ticket.attachments)) {
+            for (const a of ticket.attachments) { if (a.url) deleteObject(a.url); }
+        }
         showToast('Ticket deleted');
         loadTickets();
     }
