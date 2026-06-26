@@ -602,6 +602,26 @@ textarea { resize: vertical; min-height: 120px; }
     color: #93C5FD;
     border: 1px solid rgba(59, 130, 246, 0.30);
 }
+.badge.b-private {
+    background: rgba(245, 158, 11, 0.14);
+    color: #FCD34D;
+    border: 1px solid rgba(245, 158, 11, 0.30);
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+.checkbox-label input[type="checkbox"] {
+    width: 1.05rem;
+    height: 1.05rem;
+    accent-color: #7C3AED;
+    cursor: pointer;
+}
 input[readonly] {
     opacity: 0.7;
     cursor: not-allowed;
