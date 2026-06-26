@@ -18,7 +18,6 @@ const CORS = {
 };
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB cap
-const ALLOWED = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -47,8 +46,8 @@ Deno.serve(async (req) => {
     if (!filename || !contentType) {
       return json({ error: "filename and contentType are required" }, 400);
     }
-    if (!ALLOWED.includes(contentType)) {
-      return json({ error: `Unsupported type ${contentType}` }, 415);
+    if (!String(contentType).startsWith("image/")) {
+      return json({ error: `Only image uploads are allowed (got ${contentType})` }, 415);
     }
     if (typeof size === "number" && size > MAX_BYTES) {
       return json({ error: "File too large (max 10 MB)" }, 413);
