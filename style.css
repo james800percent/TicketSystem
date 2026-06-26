@@ -680,6 +680,36 @@ textarea { resize: vertical; min-height: 120px; }
     border-radius: 5px;
     border: 1px solid var(--border-color);
 }
+
+/* ---------- Team management ---------- */
+.team-add-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+.team-add-row input { flex: 1; min-width: 120px; }
+.team-add-row .primary-btn { flex: 0 0 auto; }
+.team-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 50vh;
+    overflow-y: auto;
+}
+.team-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+.team-row .team-name { flex: 0 0 9rem; font-weight: 600; }
+.team-row input { flex: 1; min-width: 100px; }
+.team-row .action-btn { flex: 0 0 auto; }
+
 input[readonly] {
     opacity: 0.7;
     cursor: not-allowed;
