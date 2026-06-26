@@ -13,7 +13,10 @@ import { AwsClient } from "https://esm.sh/aws4fetch@1.0.20";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  // Explicit list covers older browsers; the trailing "*" future-proofs against
+  // additional headers the Supabase client adds (e.g. x-supabase-api-version).
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-api-version, *",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
