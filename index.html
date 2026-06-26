@@ -181,6 +181,12 @@
                             <textarea id="ticketDescription" placeholder="1. Go to page...&#10;2. Click on...&#10;3. Expected... but got..." maxlength="2000" required></textarea>
                         </div>
 
+                        <div class="input-group">
+                            <label for="ticketAttachments">Screenshots</label>
+                            <input type="file" id="ticketAttachments" accept="image/png,image/jpeg,image/gif,image/webp" multiple>
+                            <div id="attachmentPreview" class="attachment-preview"></div>
+                        </div>
+
                         <div class="modal-footer">
                             <button type="button" id="cancelBtn" class="secondary-btn">Cancel</button>
                             <button type="submit" id="saveTicketBtn" class="primary-btn glow">Submit Ticket</button>

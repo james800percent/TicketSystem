@@ -32,6 +32,8 @@ const assignedToInput = document.getElementById('ticketAssignedTo');
 const assignedByInput = document.getElementById('ticketAssignedBy');
 const projectInput = document.getElementById('ticketProject');
 const privateInput = document.getElementById('ticketPrivate');
+const attachmentsInput = document.getElementById('ticketAttachments');
+const attachmentPreview = document.getElementById('attachmentPreview');
 const descriptionInput = document.getElementById('ticketDescription');
 const saveTicketBtn = document.getElementById('saveTicketBtn');
 
@@ -60,6 +62,7 @@ const toast = document.getElementById('toast');
 // ---------- State ----------
 let allTickets = [];
 let pendingDeleteId = null;
+let modalAttachments = []; // attachments being edited in the open modal
 
 // ---------- Team Members (hardcoded list) ----------
 const TEAM_MEMBERS = [
@@ -257,7 +260,8 @@ async function createTicket(ticket) {
         assigned_by: ticket.assigned_to ? ticket.assigned_by : null,
         assigned_at: ticket.assigned_to ? new Date().toISOString() : null,
         project: ticket.project || null,
-        is_private: !!ticket.is_private
+        is_private: !!ticket.is_private,
+        attachments: Array.isArray(ticket.attachments) ? ticket.attachments : []
     };
     const { data, error } = await db.from('tickets').insert(payload).select().single();
     if (error) { showToast('Could not save: ' + error.message, 'error'); return null; }
@@ -331,6 +335,7 @@ function openModal(ticket = null) {
         assignedByInput.value = ticket.assigned_by || (ticket.assigned_to ? currentAssigner : '');
         projectInput.value = ticket.project || '';
         privateInput.checked = !!ticket.is_private;
+        modalAttachments = Array.isArray(ticket.attachments) ? ticket.attachments.map(a => ({ ...a })) : [];
         descriptionInput.value = ticket.description;
     } else {
         modalTitle.textContent = 'Create New Ticket';
@@ -339,7 +344,9 @@ function openModal(ticket = null) {
         ticketForm.reset();
         assignedByInput.value = currentAssigner;
         reporterInput.value = currentAssigner; // default "Submitted By" to the logged-in user
+        modalAttachments = [];
     }
+    renderAttachmentPreview();
     modal.classList.remove('hidden');
     requestAnimationFrame(() => modal.classList.add('active'));
     setTimeout(() => titleInput.focus(), 200);
@@ -367,6 +374,72 @@ function closeModal() {
     setTimeout(() => modal.classList.add('hidden'), 300);
 }
 
+// ============================================================
+// ATTACHMENTS — upload to R2 via the presign-upload Edge Function
+// ============================================================
+
+attachmentsInput.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = ''; // allow re-selecting the same file
+    for (const file of files) {
+        if (!file.type.startsWith('image/')) { showToast('Only image files are allowed', 'error'); continue; }
+        if (file.size > 10 * 1024 * 1024) { showToast(`${file.name} is over 10 MB`, 'error'); continue; }
+        const item = { name: file.name, type: file.type, url: null, uploading: true };
+        modalAttachments.push(item);
+        renderAttachmentPreview();
+        try {
+            const uploaded = await uploadAttachment(file);
+            Object.assign(item, uploaded, { uploading: false });
+        } catch (err) {
+            modalAttachments = modalAttachments.filter(a => a !== item);
+            showToast('Upload failed: ' + err.message, 'error');
+        }
+        renderAttachmentPreview();
+    }
+});
+
+async function uploadAttachment(file) {
+    // 1) Ask the Edge Function for a presigned PUT URL (auth token sent automatically).
+    const { data, error } = await db.functions.invoke('presign-upload', {
+        body: { filename: file.name, contentType: file.type, size: file.size }
+    });
+    if (error) throw new Error(error.message || 'could not get an upload URL');
+    if (!data || !data.uploadUrl) throw new Error(data && data.error ? data.error : 'no upload URL returned');
+    // 2) Upload the file straight to R2.
+    const put = await fetch(data.uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
+    if (!put.ok) throw new Error('storage returned ' + put.status);
+    return { url: data.publicUrl, name: file.name, type: file.type };
+}
+
+function renderAttachmentPreview() {
+    attachmentPreview.replaceChildren();
+    for (const att of modalAttachments) {
+        const thumb = document.createElement('div');
+        thumb.className = 'attachment-thumb' + (att.uploading ? ' uploading' : '');
+        if (att.url) {
+            const img = document.createElement('img');
+            img.src = att.url;
+            img.alt = att.name || 'attachment';
+            thumb.appendChild(img);
+        } else {
+            thumb.textContent = '⏳';
+        }
+        if (!att.uploading) {
+            const rm = document.createElement('button');
+            rm.type = 'button';
+            rm.className = 'attachment-remove';
+            rm.textContent = '×';
+            rm.setAttribute('aria-label', 'Remove attachment');
+            rm.addEventListener('click', () => {
+                modalAttachments = modalAttachments.filter(a => a !== att);
+                renderAttachmentPreview();
+            });
+            thumb.appendChild(rm);
+        }
+        attachmentPreview.appendChild(thumb);
+    }
+}
+
 ticketForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const title = titleInput.value.trim();
@@ -377,6 +450,7 @@ ticketForm.addEventListener('submit', async (e) => {
     const assigned_by = assignedByInput.value.trim();
     const project = projectInput.value;
     const is_private = privateInput.checked;
+    const attachments = modalAttachments.filter(a => a.url).map(a => ({ url: a.url, name: a.name, type: a.type }));
     if (!title || !reporter || !description) return;
 
     saveTicketBtn.disabled = true;
@@ -387,7 +461,7 @@ ticketForm.addEventListener('submit', async (e) => {
         // Find the existing ticket to know if assignment is changing
         const existing = allTickets.find(t => t.id === editingTicketId.value);
         const wasAssignedTo = existing?.assigned_to || '';
-        const updates = { title, priority, reporter, description, assigned_to: assigned_to || null, project: project || null, is_private };
+        const updates = { title, priority, reporter, description, assigned_to: assigned_to || null, project: project || null, is_private, attachments };
 
         if (assigned_to && assigned_to !== wasAssignedTo) {
             // New assignment (or reassignment) — stamp the assigner and date
@@ -403,7 +477,7 @@ ticketForm.addEventListener('submit', async (e) => {
         const updated = await updateTicket(editingTicketId.value, updates);
         if (updated) showToast('Ticket updated');
     } else {
-        const created = await createTicket({ title, priority, reporter, description, assigned_to, assigned_by, project, is_private });
+        const created = await createTicket({ title, priority, reporter, description, assigned_to, assigned_by, project, is_private, attachments });
         if (created) showToast('Ticket created');
     }
 
@@ -533,6 +607,10 @@ function renderTickets() {
         const updatedLine = t.updated_at
             ? `<div class="card-updated">Updated ${escapeHTML(formatDateTime(t.updated_at))}</div>`
             : '';
+        const atts = Array.isArray(t.attachments) ? t.attachments : [];
+        const attachmentsHtml = atts.length
+            ? `<div class="card-attachments">${atts.map(a => `<a href="${escapeHTML(a.url)}" target="_blank" rel="noopener"><img src="${escapeHTML(a.url)}" alt="${escapeHTML(a.name || 'attachment')}" loading="lazy"></a>`).join('')}</div>`
+            : '';
         card.innerHTML = `
             <div class="card-header">
                 <div>
@@ -549,6 +627,7 @@ function renderTickets() {
             </div>
             ${assignmentLine}
             <div class="card-desc">${escapeHTML(t.description).replace(/\n/g,'<br>')}</div>
+            ${attachmentsHtml}
             ${updatedLine}
             <div class="card-footer">
                 <div class="reporter">
