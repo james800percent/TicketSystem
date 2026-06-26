@@ -144,10 +144,20 @@
                                 </select>
                             </div>
                             <div class="input-group half">
-                                <label for="ticketReporter">Submitted By</label>
-                                <input type="text" id="ticketReporter" placeholder="You" autocomplete="off" maxlength="60" readonly required>
+                                <label for="ticketType">Type</label>
+                                <select id="ticketType">
+                                    <option>Bug</option>
+                                    <option>Todo</option>
+                                    <option>Feature Request</option>
+                                    <option>UI/UX Request</option>
+                                    <option>Improvement</option>
+                                    <option>Other</option>
+                                </select>
                             </div>
                         </div>
+
+                        <!-- Submitted By: auto-set to the logged-in user, still recorded -->
+                        <input type="hidden" id="ticketReporter">
 
                         <div class="input-group">
                             <label for="ticketProject">Project</label>

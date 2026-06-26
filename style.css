@@ -368,6 +368,12 @@ input:focus, textarea:focus, select:focus {
 .badge.p-low { background: var(--priority-low-bg); color: var(--priority-low); }
 .badge.s-open { background: var(--status-open-bg); color: var(--status-open); border: 1px solid rgba(59, 130, 246, 0.2); }
 .badge.s-resolved { background: var(--status-resolved-bg); color: var(--status-resolved); border: 1px solid rgba(16, 185, 129, 0.2); }
+.badge.b-type { background: rgba(148, 163, 184, 0.14); color: #CBD5E1; border: 1px solid rgba(148, 163, 184, 0.30); }
+
+/* Card border tinted to the ticket's priority */
+.card.pr-high { border-color: var(--priority-high); }
+.card.pr-medium { border-color: var(--priority-medium); }
+.card.pr-low { border-color: var(--priority-low); }
 
 .card-desc {
     color: var(--text-secondary);

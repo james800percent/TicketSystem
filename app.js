@@ -27,6 +27,7 @@ const ticketForm = document.getElementById('ticketForm');
 const editingTicketId = document.getElementById('editingTicketId');
 const titleInput = document.getElementById('ticketTitle');
 const priorityInput = document.getElementById('ticketPriority');
+const typeInput = document.getElementById('ticketType');
 const reporterInput = document.getElementById('ticketReporter');
 const assignedToInput = document.getElementById('ticketAssignedTo');
 const assignedByInput = document.getElementById('ticketAssignedBy');
@@ -241,6 +242,7 @@ async function createTicket(ticket) {
         ticket_code: generateCode(),
         title: ticket.title,
         priority: ticket.priority,
+        type: ticket.type || 'Bug',
         reporter: ticket.reporter,
         description: ticket.description,
         status: 'Open',
@@ -318,6 +320,7 @@ function openModal(ticket = null) {
         editingTicketId.value = ticket.id;
         titleInput.value = ticket.title;
         priorityInput.value = ticket.priority;
+        typeInput.value = ticket.type || 'Bug';
         reporterInput.value = ticket.reporter;
         assignedToInput.value = ticket.assigned_to || '';
         // Preserve original assigner if already set; otherwise use current user
@@ -443,6 +446,7 @@ ticketForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const title = titleInput.value.trim();
     const priority = priorityInput.value;
+    const type = typeInput.value;
     const reporter = reporterInput.value.trim();
     const description = descriptionInput.value.trim();
     const assigned_to = assignedToInput.value.trim();
@@ -460,7 +464,7 @@ ticketForm.addEventListener('submit', async (e) => {
         // Find the existing ticket to know if assignment is changing
         const existing = allTickets.find(t => t.id === editingTicketId.value);
         const wasAssignedTo = existing?.assigned_to || '';
-        const updates = { title, priority, reporter, description, assigned_to: assigned_to || null, project: project || null, is_private, attachments };
+        const updates = { title, priority, type, reporter, description, assigned_to: assigned_to || null, project: project || null, is_private, attachments };
 
         if (assigned_to && assigned_to !== wasAssignedTo) {
             // New assignment (or reassignment) — stamp the assigner and date
@@ -476,7 +480,7 @@ ticketForm.addEventListener('submit', async (e) => {
         const updated = await updateTicket(editingTicketId.value, updates);
         if (updated) showToast('Ticket updated');
     } else {
-        const created = await createTicket({ title, priority, reporter, description, assigned_to, assigned_by, project, is_private, attachments });
+        const created = await createTicket({ title, priority, type, reporter, description, assigned_to, assigned_by, project, is_private, attachments });
         if (created) showToast('Ticket created');
     }
 
@@ -597,7 +601,7 @@ function renderTickets() {
 
     for (const t of filtered) {
         const card = document.createElement('div');
-        card.className = 'card';
+        card.className = 'card pr-' + (t.priority || '').toLowerCase();
         card.dataset.id = t.id;
         const initials = (t.reporter || '??').substring(0, 2).toUpperCase();
         const assignmentLine = t.assigned_to
@@ -620,6 +624,7 @@ function renderTickets() {
             <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
                 <span class="badge s-${t.status.toLowerCase()}">${escapeHTML(t.status)}</span>
                 <span class="badge p-${t.priority.toLowerCase()}">${escapeHTML(t.priority)}</span>
+                ${t.type ? `<span class="badge b-type">${escapeHTML(t.type)}</span>` : ''}
                 ${t.assigned_to ? `<span class="badge b-assigned">➜ ${escapeHTML(t.assigned_to)}</span>` : ''}
                 ${t.project ? `<span class="badge b-project">${escapeHTML(t.project)}</span>` : ''}
                 ${t.is_private ? `<span class="badge b-private">🔒 Private</span>` : ''}
